@@ -12,11 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  useSelic,
-  useSelicUpdatedAt,
-  useSettingsStore,
-} from "@/hooks/use-settings-store";
+import { useSelic, useSelicUpdatedAt, useSettingsStore } from "@/hooks/use-settings-store";
 import { selicToCdi } from "@/lib/cdi";
 import { maskPercent } from "@/lib/mask";
 import { formatDate, formatPercentNumber } from "@/lib/format";
@@ -30,9 +26,7 @@ type SettingsDialogProps = {
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        {open ? <SettingsForm onClose={() => onOpenChange(false)} /> : null}
-      </DialogContent>
+      <DialogContent>{open ? <SettingsForm onClose={() => onOpenChange(false)} /> : null}</DialogContent>
     </Dialog>
   );
 }
@@ -50,9 +44,7 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
   const setSelic = useSettingsStore((s) => s.setSelic);
   const { theme, setTheme } = useTheme();
 
-  const [selicInput, setSelicInput] = useState(() =>
-    maskPercent(decimalString(currentSelic)),
-  );
+  const [selicInput, setSelicInput] = useState(() => maskPercent(decimalString(currentSelic)));
 
   const parsedSelic = parseLocaleNumber(selicInput);
   const previewCdi = selicToCdi(parsedSelic);
@@ -68,29 +60,18 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
     <>
       <DialogHeader>
         <DialogTitle>Configurações</DialogTitle>
-        <DialogDescription>
-          Defina a SELIC atual. O CDI é inferido automaticamente
-          (SELIC − 0,10).
-        </DialogDescription>
+        <DialogDescription>Defina a SELIC atual. O CDI é inferido automaticamente (SELIC - 0,10).</DialogDescription>
       </DialogHeader>
 
       <div className="grid gap-4">
         <div className="grid gap-2">
           <Label>Tema</Label>
           <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant={theme === "light" ? "default" : "outline"}
-              onClick={() => setTheme("light")}
-            >
+            <Button type="button" variant={theme === "light" ? "default" : "outline"} onClick={() => setTheme("light")}>
               <Sun />
               Claro
             </Button>
-            <Button
-              type="button"
-              variant={theme === "dark" ? "default" : "outline"}
-              onClick={() => setTheme("dark")}
-            >
+            <Button type="button" variant={theme === "dark" ? "default" : "outline"} onClick={() => setTheme("dark")}>
               <Moon />
               Escuro
             </Button>
@@ -115,9 +96,7 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div className="text-xs text-muted-foreground">
-          Última atualização: {formatDate(updatedAt) || "—"}
-        </div>
+        <div className="text-xs text-muted-foreground">Última atualização: {formatDate(updatedAt) || "—"}</div>
       </div>
 
       <DialogFooter>

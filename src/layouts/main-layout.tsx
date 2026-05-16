@@ -7,18 +7,16 @@ export function MainLayout() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background text-foreground">
+        <Toaster richColors position="bottom-right" />
         <header className="border-b border-border">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-            <h1 className="text-lg font-semibold tracking-tight">
-              Comparador de Renda Fixa
-            </h1>
+            <h1 className="text-lg font-semibold tracking-tight">Comparador de Renda Fixa</h1>
             <SettingsButton />
           </div>
         </header>
         <main className="mx-auto max-w-7xl px-6 py-8">
           <Outlet />
         </main>
-        <Toaster richColors position="top-right" />
       </div>
     </TooltipProvider>
   );

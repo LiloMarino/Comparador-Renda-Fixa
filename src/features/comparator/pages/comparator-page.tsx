@@ -9,9 +9,7 @@ export function ComparatorPage() {
 
   useEffect(() => {
     if (isSelicStale(updatedAt)) {
-      toast.warning(
-        "SELIC pode estar desatualizada — confira em Configurações.",
-      );
+      toast.warning("SELIC pode estar desatualizada — confira em Configurações.");
     }
   }, [updatedAt]);
 
@@ -20,8 +18,7 @@ export function ComparatorPage() {
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Comparação</h2>
         <p className="text-sm text-muted-foreground">
-          Adicione ativos para comparar rendimento líquido, IR e equivalência ao
-          CDI.
+          Adicione ativos para comparar rendimento líquido, IR e equivalência ao CDI.
         </p>
       </div>
       <AssetGrid />

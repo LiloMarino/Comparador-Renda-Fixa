@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import type {
   Asset,
   AssetWithId,
@@ -55,19 +55,22 @@ export const useAssetsStore = create<AssetsState>()(
     }),
     {
       name: "comparador-renda-fixa::assets",
-      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ assets: state.assets, ids: state.ids }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        for (const id of state.ids) {
-          const asset = state.assets[id];
-          if (!asset) continue;
-          state.assets[id] = {
-            ...asset,
-            applicationDate: new Date(asset.applicationDate),
-            redemptionDate: new Date(asset.redemptionDate),
-          };
-        }
+
+        const hydratedAssets = Object.fromEntries(
+          Object.entries(state.assets).map(([id, asset]) => [
+            id,
+            {
+              ...asset,
+              applicationDate: new Date(asset.applicationDate),
+              redemptionDate: new Date(asset.redemptionDate),
+            },
+          ]),
+        );
+
+        state.assets = hydratedAssets;
       },
     },
   ),

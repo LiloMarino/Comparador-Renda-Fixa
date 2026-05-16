@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import { selicToCdi } from "@/lib/cdi";
 
 type SettingsState = {
@@ -12,13 +12,15 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       selic: 14.5,
-      selicUpdatedAt: new Date().toISOString(),
+      selicUpdatedAt: "",
       setSelic: (value) =>
-        set({ selic: value, selicUpdatedAt: new Date().toISOString() }),
+        set({
+          selic: value,
+          selicUpdatedAt: new Date().toISOString(),
+        }),
     }),
     {
       name: "comparador-renda-fixa::settings",
-      storage: createJSONStorage(() => localStorage),
     },
   ),
 );
