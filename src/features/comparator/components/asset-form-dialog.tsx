@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
-import { addBusinessDays, format, isValid } from "date-fns";
+import { addBusinessDays, format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import {
@@ -30,6 +30,7 @@ import {
   type InvestmentType,
   type YieldType,
 } from "@/features/comparator/schemas/asset-schema";
+import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-settings-store";
 
 type RedemptionInputMode = "date" | "term";
 
@@ -87,6 +88,14 @@ function assetToFormValues(asset: AssetWithId): FormValues {
 }
 
 export function AssetFormDialog({ open, mode, initialAsset, onOpenChange, onSubmit }: AssetFormDialogProps) {
+  const globalAmountCents = useGlobalAmountCents();
+  const globalApplicationDateStr = useGlobalApplicationDate();
+  const globalApplicationDate = useMemo(() => {
+    if (!globalApplicationDateStr) return null;
+    const parsed = parseISO(globalApplicationDateStr);
+    return isValid(parsed) ? parsed : null;
+  }, [globalApplicationDateStr]);
+
   const {
     control,
     handleSubmit,
@@ -97,9 +106,14 @@ export function AssetFormDialog({ open, mode, initialAsset, onOpenChange, onSubm
 
   useEffect(() => {
     if (open) {
-      reset(initialAsset ? assetToFormValues(initialAsset) : DEFAULT_VALUES);
+      const base = initialAsset ? assetToFormValues(initialAsset) : DEFAULT_VALUES;
+      reset({
+        ...base,
+        amountInput: globalAmountCents !== null ? formatCurrency(globalAmountCents / 100) : base.amountInput,
+        applicationDate: globalApplicationDate ?? base.applicationDate,
+      });
     }
-  }, [open, initialAsset, reset]);
+  }, [open, initialAsset, reset, globalAmountCents, globalApplicationDate]);
 
   const yieldType = useWatch({ control, name: "yieldType" });
   const redemptionInputMode = useWatch({
@@ -236,6 +250,7 @@ export function AssetFormDialog({ open, mode, initialAsset, onOpenChange, onSubm
                   onChange={(e) => field.onChange(maskCurrency(e.target.value))}
                   placeholder="R$ 0,00"
                   aria-invalid={!!errors.amountInput}
+                  disabled={globalAmountCents !== null}
                 />
               )}
             />
@@ -248,7 +263,12 @@ export function AssetFormDialog({ open, mode, initialAsset, onOpenChange, onSubm
               control={control}
               name="applicationDate"
               render={({ field }) => (
-                <DatePickerField value={field.value} onChange={field.onChange} invalid={!!errors.applicationDate} />
+                <DatePickerField
+                  value={field.value}
+                  onChange={field.onChange}
+                  invalid={!!errors.applicationDate}
+                  disabled={globalApplicationDate !== null}
+                />
               )}
             />
             {errors.applicationDate && <p className="text-xs text-destructive">{errors.applicationDate.message}</p>}
@@ -360,9 +380,10 @@ type DatePickerFieldProps = {
   value: Date | undefined;
   onChange: (date: Date | undefined) => void;
   invalid?: boolean;
+  disabled?: boolean;
 };
 
-function DatePickerField({ value, onChange, invalid }: DatePickerFieldProps) {
+function DatePickerField({ value, onChange, invalid, disabled }: DatePickerFieldProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -371,6 +392,7 @@ function DatePickerField({ value, onChange, invalid }: DatePickerFieldProps) {
           variant="outline"
           className={cn("w-full justify-start font-normal", !value && "text-muted-foreground")}
           aria-invalid={invalid}
+          disabled={disabled}
         >
           <CalendarIcon />
           {value ? format(value, "dd/MM/yyyy") : "Selecionar data"}
