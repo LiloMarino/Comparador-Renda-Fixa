@@ -14,29 +14,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import {
-  maskCurrency,
-  maskPositiveDecimal,
-  maskPositiveInteger,
-  maskCurrencyToNumber,
-  normalizeDecimalInput,
-} from "@/lib/mask";
-import { parseDecimalBrazilian, toCurrency } from "@/lib/format";
+import { maskCurrency, maskOnlyNumbers, maskPercent } from "@/lib/mask";
+import { formatCurrency } from "@/lib/format";
+import { parseLocaleNumber } from "@/lib/parse";
 import {
   INVESTMENT_TYPE_LABELS,
   YIELD_TYPE_LABELS,
@@ -91,24 +76,17 @@ function assetToFormValues(asset: AssetWithId): FormValues {
   return {
     investmentType: asset.investmentType,
     yieldType: asset.yieldType,
-    amountInput: toCurrency(asset.amountCents / 100),
+    amountInput: formatCurrency(asset.amountCents / 100),
     applicationDate: asset.applicationDate,
     redemptionInputMode: "date",
     redemptionDate: asset.redemptionDate,
     termDays: "",
-    preRate: asset.yieldType === "pre" ? decimalString(asset.preRate) : "",
-    cdiPercent:
-      asset.yieldType === "pos" ? decimalString(asset.cdiPercent) : "",
+    preRate: asset.yieldType === "pre" ? maskPercent(decimalString(asset.preRate)) : "",
+    cdiPercent: asset.yieldType === "pos" ? maskPercent(decimalString(asset.cdiPercent)) : "",
   };
 }
 
-export function AssetFormDialog({
-  open,
-  mode,
-  initialAsset,
-  onOpenChange,
-  onSubmit,
-}: AssetFormDialogProps) {
+export function AssetFormDialog({ open, mode, initialAsset, onOpenChange, onSubmit }: AssetFormDialogProps) {
   const {
     control,
     handleSubmit,
@@ -130,9 +108,7 @@ export function AssetFormDialog({
   });
 
   function submit(values: FormValues) {
-    const amountCents = Math.round(
-      maskCurrencyToNumber(values.amountInput) * 100,
-    );
+    const amountCents = Math.round(parseLocaleNumber(values.amountInput) * 100);
     if (amountCents <= 0) {
       setError("amountInput", { message: "Informe o valor aplicado." });
       return;
@@ -174,16 +150,14 @@ export function AssetFormDialog({
 
     let asset: Asset;
     if (values.yieldType === "pre") {
-      const rate = parseDecimalBrazilian(normalizeDecimalInput(values.preRate));
+      const rate = parseLocaleNumber(values.preRate);
       if (!Number.isFinite(rate) || rate <= 0) {
         setError("preRate", { message: "Informe a taxa pré-fixada." });
         return;
       }
       asset = { ...common, yieldType: "pre", preRate: rate };
     } else {
-      const pct = parseDecimalBrazilian(
-        normalizeDecimalInput(values.cdiPercent),
-      );
+      const pct = parseLocaleNumber(values.cdiPercent);
       if (!Number.isFinite(pct) || pct <= 0) {
         setError("cdiPercent", { message: "Informe o % do CDI." });
         return;
@@ -198,20 +172,11 @@ export function AssetFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {mode === "create" ? "Novo investimento" : "Editar investimento"}
-          </DialogTitle>
-          <DialogDescription>
-            Preencha os dados do ativo de renda fixa para incluí-lo na
-            comparação.
-          </DialogDescription>
+          <DialogTitle>{mode === "create" ? "Novo investimento" : "Editar investimento"}</DialogTitle>
+          <DialogDescription>Preencha os dados do ativo de renda fixa para incluí-lo na comparação.</DialogDescription>
         </DialogHeader>
 
-        <form
-          onSubmit={handleSubmit(submit)}
-          className="grid gap-4"
-          noValidate
-        >
+        <form onSubmit={handleSubmit(submit)} className="grid gap-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label htmlFor="investmentType">Tipo de Investimento</Label>
@@ -274,11 +239,7 @@ export function AssetFormDialog({
                 />
               )}
             />
-            {errors.amountInput && (
-              <p className="text-xs text-destructive">
-                {errors.amountInput.message}
-              </p>
-            )}
+            {errors.amountInput && <p className="text-xs text-destructive">{errors.amountInput.message}</p>}
           </div>
 
           <div className="grid gap-2">
@@ -287,18 +248,10 @@ export function AssetFormDialog({
               control={control}
               name="applicationDate"
               render={({ field }) => (
-                <DatePickerField
-                  value={field.value}
-                  onChange={field.onChange}
-                  invalid={!!errors.applicationDate}
-                />
+                <DatePickerField value={field.value} onChange={field.onChange} invalid={!!errors.applicationDate} />
               )}
             />
-            {errors.applicationDate && (
-              <p className="text-xs text-destructive">
-                {errors.applicationDate.message}
-              </p>
-            )}
+            {errors.applicationDate && <p className="text-xs text-destructive">{errors.applicationDate.message}</p>}
           </div>
 
           <div className="grid gap-2">
@@ -307,12 +260,7 @@ export function AssetFormDialog({
               control={control}
               name="redemptionInputMode"
               render={({ field }) => (
-                <Tabs
-                  value={field.value}
-                  onValueChange={(v) =>
-                    field.onChange(v as RedemptionInputMode)
-                  }
-                >
+                <Tabs value={field.value} onValueChange={(v) => field.onChange(v as RedemptionInputMode)}>
                   <TabsList className="w-full">
                     <TabsTrigger value="date" className="flex-1">
                       Por data de resgate
@@ -331,18 +279,10 @@ export function AssetFormDialog({
                   control={control}
                   name="redemptionDate"
                   render={({ field }) => (
-                    <DatePickerField
-                      value={field.value}
-                      onChange={field.onChange}
-                      invalid={!!errors.redemptionDate}
-                    />
+                    <DatePickerField value={field.value} onChange={field.onChange} invalid={!!errors.redemptionDate} />
                   )}
                 />
-                {errors.redemptionDate && (
-                  <p className="text-xs text-destructive">
-                    {errors.redemptionDate.message}
-                  </p>
-                )}
+                {errors.redemptionDate && <p className="text-xs text-destructive">{errors.redemptionDate.message}</p>}
               </>
             ) : (
               <>
@@ -353,19 +293,13 @@ export function AssetFormDialog({
                     <Input
                       inputMode="numeric"
                       value={field.value}
-                      onChange={(e) =>
-                        field.onChange(maskPositiveInteger(e.target.value))
-                      }
+                      onChange={(e) => field.onChange(maskOnlyNumbers(e.target.value))}
                       placeholder="360"
                       aria-invalid={!!errors.termDays}
                     />
                   )}
                 />
-                {errors.termDays && (
-                  <p className="text-xs text-destructive">
-                    {errors.termDays.message}
-                  </p>
-                )}
+                {errors.termDays && <p className="text-xs text-destructive">{errors.termDays.message}</p>}
               </>
             )}
           </div>
@@ -381,21 +315,13 @@ export function AssetFormDialog({
                     id="preRate"
                     inputMode="decimal"
                     value={field.value}
-                    onChange={(e) =>
-                      field.onChange(
-                        maskPositiveDecimal(e.target.value, { scale: 2 }),
-                      )
-                    }
-                    placeholder="12,50"
+                    onChange={(e) => field.onChange(maskPercent(e.target.value))}
+                    placeholder="12,50%"
                     aria-invalid={!!errors.preRate}
                   />
                 )}
               />
-              {errors.preRate && (
-                <p className="text-xs text-destructive">
-                  {errors.preRate.message}
-                </p>
-              )}
+              {errors.preRate && <p className="text-xs text-destructive">{errors.preRate.message}</p>}
             </div>
           ) : (
             <div className="grid gap-2">
@@ -408,35 +334,21 @@ export function AssetFormDialog({
                     id="cdiPercent"
                     inputMode="decimal"
                     value={field.value}
-                    onChange={(e) =>
-                      field.onChange(
-                        maskPositiveDecimal(e.target.value, { scale: 2 }),
-                      )
-                    }
-                    placeholder="100,00"
+                    onChange={(e) => field.onChange(maskPercent(e.target.value))}
+                    placeholder="100,00%"
                     aria-invalid={!!errors.cdiPercent}
                   />
                 )}
               />
-              {errors.cdiPercent && (
-                <p className="text-xs text-destructive">
-                  {errors.cdiPercent.message}
-                </p>
-              )}
+              {errors.cdiPercent && <p className="text-xs text-destructive">{errors.cdiPercent.message}</p>}
             </div>
           )}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit">
-              {mode === "create" ? "Criar" : "Salvar"}
-            </Button>
+            <Button type="submit">{mode === "create" ? "Criar" : "Salvar"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -457,10 +369,7 @@ function DatePickerField({ value, onChange, invalid }: DatePickerFieldProps) {
         <Button
           type="button"
           variant="outline"
-          className={cn(
-            "w-full justify-start font-normal",
-            !value && "text-muted-foreground",
-          )}
+          className={cn("w-full justify-start font-normal", !value && "text-muted-foreground")}
           aria-invalid={invalid}
         >
           <CalendarIcon />
@@ -468,13 +377,7 @@ function DatePickerField({ value, onChange, invalid }: DatePickerFieldProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={onChange}
-          locale={ptBR}
-          captionLayout="dropdown"
-        />
+        <Calendar mode="single" selected={value} onSelect={onChange} locale={ptBR} captionLayout="dropdown" />
       </PopoverContent>
     </Popover>
   );

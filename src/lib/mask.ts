@@ -16,59 +16,17 @@ export function maskCurrency(value: string): string {
   });
 }
 
-export function maskCurrencyToNumber(value: string): number {
-  const digits = maskOnlyNumbers(value);
-  if (!digits) {
-    return 0;
+export function maskPercent(value: string): string {
+  const cleaned = value.replace(/[^\d,]/g, "").replace(/^,+/, "");
+  const [intPart = "", ...rest] = cleaned.split(",");
+  const decPart = rest.join("").slice(0, 2);
+
+  if (!intPart && !decPart) {
+    return "";
   }
 
-  return Number(digits) / 100;
-}
+  const hasComma = cleaned.includes(",");
+  const formatted = hasComma ? `${intPart || "0"},${decPart}` : intPart;
 
-export function maskInteger(value: string): string {
-  let cleaned = value.replace(/[^\d-]/g, "");
-  if (cleaned.includes("-")) {
-    cleaned = cleaned.replace(/(?!^)-/g, "");
-  }
-  return cleaned;
-}
-
-export function maskPositiveInteger(value: string): string {
-  return maskOnlyNumbers(value);
-}
-
-export function maskPositiveDecimal(
-  value: string,
-  options: { scale?: number } = {},
-): string {
-  const scale = options.scale ?? 6;
-
-  const cleaned = value.replace(/[^\d.,]/g, "").replace(/\./g, ",");
-
-  const hasTrailingComma = cleaned.endsWith(",");
-
-  const [intPartRaw = "", ...rest] = cleaned.split(",");
-
-  const intPart = intPartRaw || "0";
-
-  const fraction = rest.join("").slice(0, scale);
-
-  if (hasTrailingComma && fraction.length === 0) {
-    return `${intPart},`;
-  }
-
-  return fraction ? `${intPart},${fraction}` : intPart;
-}
-
-export function normalizeDecimalInput(value: string): string {
-  if (!value) {
-    return "0";
-  }
-
-  const cleaned = value.replace(/[^\d.,]/g, "").replace(/\./g, ",");
-  const [intPartRaw = "", ...rest] = cleaned.split(",");
-  const intPart = intPartRaw || "0";
-  const fraction = rest.join("");
-
-  return fraction ? `${intPart}.${fraction}` : intPart;
+  return `${formatted}%`;
 }

@@ -18,12 +18,9 @@ import {
   useSettingsStore,
 } from "@/hooks/use-settings-store";
 import { selicToCdi } from "@/lib/cdi";
-import { maskPositiveDecimal, normalizeDecimalInput } from "@/lib/mask";
-import {
-  formatDate,
-  formatPercentNumber,
-  parseDecimalBrazilian,
-} from "@/lib/format";
+import { maskPercent } from "@/lib/mask";
+import { formatDate, formatPercentNumber } from "@/lib/format";
+import { parseLocaleNumber } from "@/lib/parse";
 
 type SettingsDialogProps = {
   open: boolean;
@@ -54,10 +51,10 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
   const { theme, setTheme } = useTheme();
 
   const [selicInput, setSelicInput] = useState(() =>
-    decimalString(currentSelic),
+    maskPercent(decimalString(currentSelic)),
   );
 
-  const parsedSelic = parseDecimalBrazilian(normalizeDecimalInput(selicInput));
+  const parsedSelic = parseLocaleNumber(selicInput);
   const previewCdi = selicToCdi(parsedSelic);
   const canSave = parsedSelic > 0;
 
@@ -106,10 +103,8 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
             id="selic-input"
             inputMode="decimal"
             value={selicInput}
-            onChange={(e) =>
-              setSelicInput(maskPositiveDecimal(e.target.value, { scale: 2 }))
-            }
-            placeholder="14,50"
+            onChange={(e) => setSelicInput(maskPercent(e.target.value))}
+            placeholder="14,50%"
           />
         </div>
 
