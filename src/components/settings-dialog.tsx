@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +51,7 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
   const currentSelic = useSelic();
   const updatedAt = useSelicUpdatedAt();
   const setSelic = useSettingsStore((s) => s.setSelic);
+  const { theme, setTheme } = useTheme();
 
   const [selicInput, setSelicInput] = useState(() =>
     decimalString(currentSelic),
@@ -75,6 +78,28 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
       </DialogHeader>
 
       <div className="grid gap-4">
+        <div className="grid gap-2">
+          <Label>Tema</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={theme === "light" ? "default" : "outline"}
+              onClick={() => setTheme("light")}
+            >
+              <Sun />
+              Claro
+            </Button>
+            <Button
+              type="button"
+              variant={theme === "dark" ? "default" : "outline"}
+              onClick={() => setTheme("dark")}
+            >
+              <Moon />
+              Escuro
+            </Button>
+          </div>
+        </div>
+
         <div className="grid gap-2">
           <Label htmlFor="selic-input">SELIC (% a.a.)</Label>
           <Input
