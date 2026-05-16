@@ -6,6 +6,10 @@ type SettingsState = {
   selic: number;
   selicUpdatedAt: string;
   setSelic: (value: number) => void;
+  globalAmountCents: number | null;
+  globalApplicationDate: string | null;
+  setGlobalAmountCents: (value: number | null) => void;
+  setGlobalApplicationDate: (value: string | null) => void;
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -18,6 +22,10 @@ export const useSettingsStore = create<SettingsState>()(
           selic: value,
           selicUpdatedAt: new Date().toISOString(),
         }),
+      globalAmountCents: null,
+      globalApplicationDate: null,
+      setGlobalAmountCents: (value) => set({ globalAmountCents: value }),
+      setGlobalApplicationDate: (value) => set({ globalApplicationDate: value }),
     }),
     {
       name: "comparador-renda-fixa::settings",
@@ -35,4 +43,12 @@ export function useCdi(): number {
 
 export function useSelicUpdatedAt(): string {
   return useSettingsStore((s) => s.selicUpdatedAt);
+}
+
+export function useGlobalAmountCents(): number | null {
+  return useSettingsStore((s) => s.globalAmountCents);
+}
+
+export function useGlobalApplicationDate(): string | null {
+  return useSettingsStore((s) => s.globalApplicationDate);
 }
