@@ -26,27 +26,29 @@ import { maskCurrency, maskOnlyNumbers, maskPercent } from "@/lib/mask";
 import { formatCurrency } from "@/lib/format";
 import { parseLocaleNumber } from "@/lib/parse";
 import {
+  INVESTMENT_TYPES,
+  YIELD_TYPES,
+  REDEMPTION_INPUT_MODES,
+  type RedemptionInputMode,
+} from "@/lib/enum";
+import {
   INVESTMENT_TYPE_LABELS,
   YIELD_TYPE_LABELS,
   type Asset,
   type AssetWithId,
-  type InvestmentType,
-  type YieldType,
 } from "@/features/comparator/schemas/asset-schema";
 import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-settings-store";
 
-type RedemptionInputMode = "date" | "term";
-
 const formSchema = z
   .object({
-    investmentType: z.enum(["CDB", "LCI", "LCA"]),
-    yieldType: z.enum(["pre", "pos"]),
+    investmentType: z.enum(INVESTMENT_TYPES),
+    yieldType: z.enum(YIELD_TYPES),
     amountInput: z
       .string()
       .min(1, "Valor aplicado é obrigatório")
       .refine((val) => parseLocaleNumber(val) > 0, "Informe o valor aplicado."),
     applicationDate: z.date({ message: "Informe a data da aplicação." }),
-    redemptionInputMode: z.enum(["date", "term"]),
+    redemptionInputMode: z.enum(REDEMPTION_INPUT_MODES),
     redemptionDate: z.date().optional(),
     termDays: z.string(),
     preRate: z.string(),
@@ -186,7 +188,7 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {(["CDB", "LCI", "LCA"] as InvestmentType[]).map((t) => (
+                        {INVESTMENT_TYPES.map((t) => (
                           <SelectItem key={t} value={t}>
                             {INVESTMENT_TYPE_LABELS[t]}
                           </SelectItem>
@@ -211,7 +213,7 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {(["pre", "pos"] as YieldType[]).map((t) => (
+                        {YIELD_TYPES.map((t) => (
                           <SelectItem key={t} value={t}>
                             {YIELD_TYPE_LABELS[t]}
                           </SelectItem>
