@@ -1,13 +1,8 @@
 import { z } from "zod";
-
-export const investmentTypeSchema = z.enum(["CDB", "LCI", "LCA"]);
-export type InvestmentType = z.infer<typeof investmentTypeSchema>;
-
-export const yieldTypeSchema = z.enum(["pre", "pos"]);
-export type YieldType = z.infer<typeof yieldTypeSchema>;
+import { INVESTMENT_TYPES, type InvestmentType, type YieldType } from "@/lib/enum";
 
 const baseAsset = z.object({
-  investmentType: investmentTypeSchema,
+  investmentType: z.enum(INVESTMENT_TYPES),
   amountCents: z.number().int().positive(),
   applicationDate: z.coerce.date(),
   redemptionDate: z.coerce.date(),
