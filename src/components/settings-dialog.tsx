@@ -29,7 +29,9 @@ type SettingsDialogProps = {
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>{open ? <SettingsForm onClose={() => onOpenChange(false)} /> : null}</DialogContent>
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 p-0">
+        {open ? <SettingsForm onClose={() => onOpenChange(false)} /> : null}
+      </DialogContent>
     </Dialog>
   );
 }
@@ -96,11 +98,17 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <DialogHeader>
+      <DialogHeader className="px-6 pt-6 pb-4">
         <DialogTitle>Configurações</DialogTitle>
       </DialogHeader>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col" noValidate>
+        <div className="grid flex-1 gap-4 overflow-y-auto px-6 pb-4">
+        <div className="grid gap-0.5">
+          <p className="text-sm font-medium">Aparência</p>
+          <p className="text-xs text-muted-foreground">Personalize o visual da aplicação.</p>
+        </div>
+
         <div className="grid gap-2">
           <FieldLabel>Tema</FieldLabel>
           <div className="grid grid-cols-2 gap-2">
@@ -118,6 +126,13 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between">
           <FieldLabel>Badges nos Cards</FieldLabel>
           <Switch checked={showBadges} onCheckedChange={setShowBadges} />
+        </div>
+
+        <Separator />
+
+        <div className="grid gap-0.5">
+          <p className="text-sm font-medium">Taxa de Referência</p>
+          <p className="text-xs text-muted-foreground">Usada como base para cálculo dos rendimentos.</p>
         </div>
 
         <Field data-invalid={!!errors.selicInput}>
@@ -223,8 +238,9 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
           />
           <FieldError>{errors.applicationDate?.message}</FieldError>
         </Field>
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
