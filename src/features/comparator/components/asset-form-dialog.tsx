@@ -36,10 +36,12 @@ import {
   type Asset,
   type AssetWithId,
 } from "@/features/comparator/schemas/asset-schema";
+import { useAssetsStore } from "@/features/comparator/hooks/use-assets-store";
 import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-settings-store";
 
 const formSchema = z
   .object({
+    name: z.string().min(1, "Informe o nome do investimento.").max(60),
     investmentType: z.enum(INVESTMENT_TYPES),
     yieldType: z.enum(YIELD_TYPES),
     amountInput: z
@@ -92,6 +94,7 @@ type AssetFormDialogProps = {
 };
 
 const DEFAULT_VALUES: FormValues = {
+  name: "",
   investmentType: "CDB",
   yieldType: "pos",
   amountInput: "",
@@ -108,10 +111,12 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
 
   const globalAmountCents = useGlobalAmountCents();
   const globalApplicationDate = useGlobalApplicationDate();
+  const assetsCount = useAssetsStore((s) => s.assets.length);
 
   const initialValues = coalesceWithDefaults(
     {
       ...(asset ?? {}),
+      name: asset?.name ?? `Investimento #${assetsCount + 1}`,
       amountInput:
         globalAmountCents !== null
           ? formatCurrency(globalAmountCents / 100)
@@ -146,6 +151,7 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
         : addBusinessDays(data.applicationDate, Number(data.termDays));
 
     const common = {
+      name: data.name.trim(),
       investmentType: data.investmentType,
       amountCents,
       applicationDate: data.applicationDate,
@@ -169,6 +175,27 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
         </DialogHeader>
 
         <form onSubmit={handleSubmit(submit)} className="grid gap-4" noValidate>
+          <Field data-invalid={!!errors.name}>
+            <FieldLabel>Nome</FieldLabel>
+            <Controller
+              control={control}
+              name="name"
+              render={({ field }) => (
+                <FieldContent>
+                  <Input
+                    id="name"
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    maxLength={60}
+                    placeholder="Investimento #1"
+                    aria-invalid={!!errors.name}
+                  />
+                </FieldContent>
+              )}
+            />
+            <FieldError>{errors.name?.message}</FieldError>
+          </Field>
+
           <div className="grid grid-cols-2 gap-3">
             <Field data-invalid={!!errors.investmentType}>
               <FieldLabel>Tipo de Investimento</FieldLabel>

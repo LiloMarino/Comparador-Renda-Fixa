@@ -23,6 +23,47 @@ export type ComputedAsset = {
   cdiEquivPercent: number;
 };
 
+export function computeAssetValueAt(
+  asset: Asset,
+  cdi: number,
+  asOfDate: Date,
+  mode: "gross" | "net",
+): number {
+  const principal = asset.amountCents / 100;
+
+  const clamped =
+    asOfDate < asset.applicationDate
+      ? asset.applicationDate
+      : asOfDate > asset.redemptionDate
+        ? asset.redemptionDate
+        : asOfDate;
+
+  const calendarDays = Math.max(
+    0,
+    differenceInCalendarDays(clamped, asset.applicationDate),
+  );
+  const businessDays = Math.max(
+    0,
+    differenceInBusinessDays(clamped, asset.applicationDate),
+  );
+
+  const annualRate =
+    asset.yieldType === "pre"
+      ? asset.preRate / 100
+      : (cdi / 100) * (asset.cdiPercent / 100);
+
+  const grossAmount = principal * Math.pow(1 + annualRate, businessDays / 252);
+
+  if (mode === "gross") return grossAmount;
+
+  const grossYield = grossAmount - principal;
+  const irRate = isTaxExempt(asset.investmentType)
+    ? 0
+    : getIrRate(calendarDays);
+  const irAmount = grossYield * (irRate / 100);
+  return grossAmount - irAmount;
+}
+
 export function computeAsset(asset: Asset, cdi: number): ComputedAsset {
   const principal = asset.amountCents / 100;
 

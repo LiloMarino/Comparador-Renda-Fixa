@@ -49,6 +49,9 @@ export function AssetCard({ asset, onEdit, onDelete }: AssetCardProps) {
   return (
     <Card className="h-full">
       <CardHeader>
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground truncate">
+          {asset.name}
+        </div>
         <CardTitle>
           {showBadges ? (
             <Badge className={INVESTMENT_TYPE_BADGE_CLASS[asset.investmentType]}>

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { INVESTMENT_TYPES, type InvestmentType, type YieldType } from "@/lib/enum";
 
 const baseAsset = z.object({
+  name: z.string().min(1).max(60),
   investmentType: z.enum(INVESTMENT_TYPES),
   amountCents: z.number().int().positive(),
   applicationDate: z.coerce.date(),

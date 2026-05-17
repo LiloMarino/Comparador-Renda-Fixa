@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { AssetGrid } from "@/features/comparator/components/asset-grid";
+import { EvolutionChart } from "@/features/comparator/components/evolution-chart";
 import { useSelicUpdatedAt } from "@/hooks/use-settings-store";
 import { isSelicStale } from "@/lib/cdi";
 
@@ -22,6 +23,7 @@ export function ComparatorPage() {
         </p>
       </div>
       <AssetGrid />
+      <EvolutionChart />
     </div>
   );
 }
