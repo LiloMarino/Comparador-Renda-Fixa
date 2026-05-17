@@ -17,16 +17,20 @@ export function maskCurrency(value: string): string {
 }
 
 export function maskPercent(value: string): string {
-  const cleaned = value.replace(/[^\d,]/g, "").replace(/^,+/, "");
-  const [intPart = "", ...rest] = cleaned.split(",");
-  const decPart = rest.join("").slice(0, 2);
+  const cleaned = value
+    .replace(".", ",")
+    .replace(/[^\d,]/g, "");
 
-  if (!intPart && !decPart) {
-    return "";
+  const parts = cleaned.split(",");
+
+  const intPart = parts[0] ?? "";
+  const decPart = parts[1]?.slice(0, 2);
+
+  const normalizedInt = intPart.replace(/^0+(?=\d)/, "");
+
+  if (cleaned.includes(",")) {
+    return `${normalizedInt || "0"},${decPart ?? ""}`;
   }
 
-  const hasComma = cleaned.includes(",");
-  const formatted = hasComma ? `${intPart || "0"},${decPart}` : intPart;
-
-  return `${formatted}%`;
+  return normalizedInt;
 }
