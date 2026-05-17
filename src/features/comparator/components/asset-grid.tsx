@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { parseISO, isValid } from "date-fns";
 import { toast } from "sonner";
 import { AssetCard } from "@/features/comparator/components/asset-card";
 import { AddAssetCard } from "@/features/comparator/components/add-asset-card";
 import { AssetFormDialog } from "@/features/comparator/components/asset-form-dialog";
 import { useAssetsStore } from "@/features/comparator/hooks/use-assets-store";
+import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-settings-store";
 import type { Asset, AssetWithId } from "@/features/comparator/schemas/asset-schema";
-
-type DialogState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; asset: AssetWithId };
 
 export function AssetGrid() {
   const ids = useAssetsStore((s) => s.ids);
@@ -14,22 +14,40 @@ export function AssetGrid() {
   const addAsset = useAssetsStore((s) => s.addAsset);
   const updateAsset = useAssetsStore((s) => s.updateAsset);
   const removeAsset = useAssetsStore((s) => s.removeAsset);
+  const [open, setOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<AssetWithId | undefined>(undefined);
 
-  const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
+  const globalAmountCents = useGlobalAmountCents();
+  const globalApplicationDateStr = useGlobalApplicationDate();
+  const globalApplicationDate = useMemo(() => {
+    if (!globalApplicationDateStr) return null;
+    const parsed = parseISO(globalApplicationDateStr);
+    return isValid(parsed) ? parsed : null;
+  }, [globalApplicationDateStr]);
+
+  function applyGlobals(asset: AssetWithId): AssetWithId {
+    return {
+      ...asset,
+      ...(globalAmountCents !== null && { amountCents: globalAmountCents }),
+      ...(globalApplicationDate !== null && { applicationDate: globalApplicationDate }),
+    };
+  }
 
   function handleSubmit(asset: Asset) {
-    if (dialog.mode === "create") {
+    if (selectedAsset) {
+      updateAsset(selectedAsset.id, asset);
+      toast.success("Investimento atualizado");
+    } else {
       addAsset(asset);
       toast.success("Investimento criado");
-    } else if (dialog.mode === "edit") {
-      updateAsset(dialog.asset.id, asset);
-      toast.success("Investimento atualizado");
     }
-    setDialog({ mode: "closed" });
+    setOpen(false);
+    setSelectedAsset(undefined);
   }
 
   function handleEdit(asset: AssetWithId) {
-    setDialog({ mode: "edit", asset });
+    setSelectedAsset(asset);
+    setOpen(true);
   }
 
   function handleDelete(id: string) {
@@ -43,17 +61,18 @@ export function AssetGrid() {
         {ids.map((id) => {
           const asset = assets[id];
           if (!asset) return null;
-          return <AssetCard key={id} asset={asset} onEdit={handleEdit} onDelete={handleDelete} />;
+          return <AssetCard key={id} asset={applyGlobals(asset)} onEdit={() => handleEdit(asset)} onDelete={handleDelete} />;
         })}
-        <AddAssetCard onClick={() => setDialog({ mode: "create" })} />
+        <AddAssetCard onClick={() => setOpen(true)} />
       </div>
 
       <AssetFormDialog
-        open={dialog.mode !== "closed"}
-        mode={dialog.mode === "edit" ? "edit" : "create"}
-        initialAsset={dialog.mode === "edit" ? dialog.asset : undefined}
-        onOpenChange={(open) => {
-          if (!open) setDialog({ mode: "closed" });
+        key={open ? (selectedAsset?.id ?? "create") : undefined}
+        open={open}
+        asset={selectedAsset}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen) setSelectedAsset(undefined);
         }}
         onSubmit={handleSubmit}
       />

@@ -11,9 +11,7 @@ React Compiler is enabled via `@rolldown/plugin-babel` + `babel-plugin-react-com
 ## Commands
 
 - `pnpm dev` — Vite dev server with HMR
-- `pnpm build` — type-check (`tsc -b`) then production build
-- `pnpm lint` — ESLint over the repo
-- `pnpm preview` — serve the production build locally
+- `pnpm check` — ESLint and Typescript check over the repo
 
 Package manager is **pnpm**. Do not introduce `npm` or `yarn` lockfiles.
 

@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
-import { addBusinessDays, format, isValid } from "date-fns";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { addBusinessDays, format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import {
@@ -13,42 +15,79 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
+import { coalesceWithDefaults } from "@/lib/coalesce";
 import { maskCurrency, maskOnlyNumbers, maskPercent } from "@/lib/mask";
 import { formatCurrency } from "@/lib/format";
 import { parseLocaleNumber } from "@/lib/parse";
+import {
+  INVESTMENT_TYPES,
+  YIELD_TYPES,
+  REDEMPTION_INPUT_MODES,
+  type RedemptionInputMode,
+} from "@/lib/enum";
 import {
   INVESTMENT_TYPE_LABELS,
   YIELD_TYPE_LABELS,
   type Asset,
   type AssetWithId,
-  type InvestmentType,
-  type YieldType,
 } from "@/features/comparator/schemas/asset-schema";
+import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-settings-store";
 
-type RedemptionInputMode = "date" | "term";
+const formSchema = z
+  .object({
+    investmentType: z.enum(INVESTMENT_TYPES),
+    yieldType: z.enum(YIELD_TYPES),
+    amountInput: z
+      .string()
+      .min(1, "Valor aplicado é obrigatório")
+      .refine((val) => parseLocaleNumber(val) > 0, "Informe o valor aplicado."),
+    applicationDate: z.date({ message: "Informe a data da aplicação." }),
+    redemptionInputMode: z.enum(REDEMPTION_INPUT_MODES),
+    redemptionDate: z.date().optional(),
+    termDays: z.string(),
+    preRate: z.string(),
+    cdiPercent: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.redemptionInputMode === "date") {
+      if (!data.redemptionDate || !isValid(data.redemptionDate)) {
+        ctx.addIssue({ code: "custom", message: "Informe a data de resgate.", path: ["redemptionDate"] });
+      } else if (data.applicationDate && data.redemptionDate <= data.applicationDate) {
+        ctx.addIssue({
+          code: "custom",
+          message: "A data de resgate deve ser posterior à aplicação.",
+          path: ["redemptionDate"],
+        });
+      }
+    } else {
+      const days = Number(data.termDays);
+      if (!Number.isFinite(days) || days <= 0) {
+        ctx.addIssue({ code: "custom", message: "Informe um prazo em dias válido.", path: ["termDays"] });
+      }
+    }
 
-type FormValues = {
-  investmentType: InvestmentType;
-  yieldType: YieldType;
-  amountInput: string;
-  applicationDate: Date | undefined;
-  redemptionInputMode: RedemptionInputMode;
-  redemptionDate: Date | undefined;
-  termDays: string;
-  preRate: string;
-  cdiPercent: string;
-};
+    if (data.yieldType === "pre") {
+      const rate = parseLocaleNumber(data.preRate);
+      if (!Number.isFinite(rate) || rate <= 0)
+        ctx.addIssue({ code: "custom", message: "Informe a taxa pré-fixada.", path: ["preRate"] });
+    } else {
+      const pct = parseLocaleNumber(data.cdiPercent);
+      if (!Number.isFinite(pct) || pct <= 0)
+        ctx.addIssue({ code: "custom", message: "Informe o % do CDI.", path: ["cdiPercent"] });
+    }
+  });
+
+type FormValues = z.input<typeof formSchema>;
 
 type AssetFormDialogProps = {
   open: boolean;
-  mode: "create" | "edit";
-  initialAsset?: AssetWithId;
+  asset?: AssetWithId;
   onOpenChange: (open: boolean) => void;
   onSubmit: (asset: Asset) => void;
 };
@@ -57,7 +96,7 @@ const DEFAULT_VALUES: FormValues = {
   investmentType: "CDB",
   yieldType: "pos",
   amountInput: "",
-  applicationDate: undefined,
+  applicationDate: undefined as unknown as Date,
   redemptionInputMode: "term",
   redemptionDate: undefined,
   termDays: "",
@@ -65,107 +104,66 @@ const DEFAULT_VALUES: FormValues = {
   cdiPercent: "",
 };
 
-function decimalString(value: number): string {
-  return value.toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFormDialogProps) {
+  const mode = asset ? "edit" : "create";
 
-function assetToFormValues(asset: AssetWithId): FormValues {
-  return {
-    investmentType: asset.investmentType,
-    yieldType: asset.yieldType,
-    amountInput: formatCurrency(asset.amountCents / 100),
-    applicationDate: asset.applicationDate,
-    redemptionInputMode: "date",
-    redemptionDate: asset.redemptionDate,
-    termDays: "",
-    preRate: asset.yieldType === "pre" ? maskPercent(decimalString(asset.preRate)) : "",
-    cdiPercent: asset.yieldType === "pos" ? maskPercent(decimalString(asset.cdiPercent)) : "",
-  };
-}
+  const globalAmountCents = useGlobalAmountCents();
+  const globalApplicationDateStr = useGlobalApplicationDate();
+  const globalApplicationDate = useMemo(() => {
+    if (!globalApplicationDateStr) return null;
+    const parsed = parseISO(globalApplicationDateStr);
+    return isValid(parsed) ? parsed : null;
+  }, [globalApplicationDateStr]);
 
-export function AssetFormDialog({ open, mode, initialAsset, onOpenChange, onSubmit }: AssetFormDialogProps) {
+  const initialValues = coalesceWithDefaults(
+    {
+      ...(asset ?? {}),
+      amountInput:
+        globalAmountCents !== null
+          ? formatCurrency(globalAmountCents / 100)
+          : asset
+            ? formatCurrency(asset.amountCents / 100)
+            : undefined,
+      applicationDate: globalApplicationDate ?? asset?.applicationDate,
+      redemptionInputMode: asset ? ("date" as RedemptionInputMode) : undefined,
+      preRate: asset?.yieldType === "pre" ? maskPercent(String(asset.preRate)) : undefined,
+      cdiPercent: asset?.yieldType === "pos" ? maskPercent(String(asset.cdiPercent)) : undefined,
+    },
+    DEFAULT_VALUES,
+  );
+
   const {
     control,
     handleSubmit,
-    reset,
-    setError,
     formState: { errors },
-  } = useForm<FormValues>({ defaultValues: DEFAULT_VALUES });
-
-  useEffect(() => {
-    if (open) {
-      reset(initialAsset ? assetToFormValues(initialAsset) : DEFAULT_VALUES);
-    }
-  }, [open, initialAsset, reset]);
-
-  const yieldType = useWatch({ control, name: "yieldType" });
-  const redemptionInputMode = useWatch({
-    control,
-    name: "redemptionInputMode",
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: initialValues,
   });
 
-  function submit(values: FormValues) {
-    const amountCents = Math.round(parseLocaleNumber(values.amountInput) * 100);
-    if (amountCents <= 0) {
-      setError("amountInput", { message: "Informe o valor aplicado." });
-      return;
-    }
-    if (!values.applicationDate || !isValid(values.applicationDate)) {
-      setError("applicationDate", { message: "Informe a data da aplicação." });
-      return;
-    }
+  const yieldType = useWatch({ control, name: "yieldType" });
+  const redemptionInputMode = useWatch({ control, name: "redemptionInputMode" });
 
-    let redemptionDate: Date | undefined;
-    if (values.redemptionInputMode === "date") {
-      if (!values.redemptionDate || !isValid(values.redemptionDate)) {
-        setError("redemptionDate", { message: "Informe a data de resgate." });
-        return;
-      }
-      redemptionDate = values.redemptionDate;
-    } else {
-      const days = Number(values.termDays);
-      if (!Number.isFinite(days) || days <= 0) {
-        setError("termDays", { message: "Informe um prazo em dias válido." });
-        return;
-      }
-      redemptionDate = addBusinessDays(values.applicationDate, days);
-    }
-
-    if (redemptionDate <= values.applicationDate) {
-      setError("redemptionDate", {
-        message: "A data de resgate deve ser posterior à aplicação.",
-      });
-      return;
-    }
+  function submit(data: FormValues) {
+    const amountCents = Math.round(parseLocaleNumber(data.amountInput) * 100);
+    const redemptionDate =
+      data.redemptionInputMode === "date"
+        ? data.redemptionDate!
+        : addBusinessDays(data.applicationDate, Number(data.termDays));
 
     const common = {
-      investmentType: values.investmentType,
+      investmentType: data.investmentType,
       amountCents,
-      applicationDate: values.applicationDate,
+      applicationDate: data.applicationDate,
       redemptionDate,
     };
 
-    let asset: Asset;
-    if (values.yieldType === "pre") {
-      const rate = parseLocaleNumber(values.preRate);
-      if (!Number.isFinite(rate) || rate <= 0) {
-        setError("preRate", { message: "Informe a taxa pré-fixada." });
-        return;
-      }
-      asset = { ...common, yieldType: "pre", preRate: rate };
-    } else {
-      const pct = parseLocaleNumber(values.cdiPercent);
-      if (!Number.isFinite(pct) || pct <= 0) {
-        setError("cdiPercent", { message: "Informe o % do CDI." });
-        return;
-      }
-      asset = { ...common, yieldType: "pos", cdiPercent: pct };
-    }
+    const result: Asset =
+      data.yieldType === "pre"
+        ? { ...common, yieldType: "pre", preRate: parseLocaleNumber(data.preRate) }
+        : { ...common, yieldType: "pos", cdiPercent: parseLocaleNumber(data.cdiPercent) };
 
-    onSubmit(asset);
+    onSubmit(result);
   }
 
   return (
@@ -178,84 +176,100 @@ export function AssetFormDialog({ open, mode, initialAsset, onOpenChange, onSubm
 
         <form onSubmit={handleSubmit(submit)} className="grid gap-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="investmentType">Tipo de Investimento</Label>
+            <Field data-invalid={!!errors.investmentType}>
+              <FieldLabel>Tipo de Investimento</FieldLabel>
               <Controller
                 control={control}
                 name="investmentType"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="investmentType" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(["CDB", "LCI", "LCA"] as const).map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {INVESTMENT_TYPE_LABELS[t]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FieldContent>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full" aria-invalid={!!errors.investmentType}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INVESTMENT_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {INVESTMENT_TYPE_LABELS[t]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FieldContent>
                 )}
               />
-            </div>
+              <FieldError>{errors.investmentType?.message}</FieldError>
+            </Field>
 
-            <div className="grid gap-2">
-              <Label htmlFor="yieldType">Tipo de Rentabilidade</Label>
+            <Field data-invalid={!!errors.yieldType}>
+              <FieldLabel>Tipo de Rentabilidade</FieldLabel>
               <Controller
                 control={control}
                 name="yieldType"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger id="yieldType" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(["pre", "pos"] as const).map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {YIELD_TYPE_LABELS[t]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FieldContent>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full" aria-invalid={!!errors.yieldType}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {YIELD_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {YIELD_TYPE_LABELS[t]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FieldContent>
                 )}
               />
-            </div>
+              <FieldError>{errors.yieldType?.message}</FieldError>
+            </Field>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="amountInput">Valor Aplicado (R$)</Label>
+          <Field data-invalid={!!errors.amountInput}>
+            <FieldLabel>Valor Aplicado (R$)</FieldLabel>
             <Controller
               control={control}
               name="amountInput"
               render={({ field }) => (
-                <Input
-                  id="amountInput"
-                  inputMode="numeric"
-                  value={field.value}
-                  onChange={(e) => field.onChange(maskCurrency(e.target.value))}
-                  placeholder="R$ 0,00"
-                  aria-invalid={!!errors.amountInput}
-                />
+                <FieldContent>
+                  <Input
+                    id="amountInput"
+                    inputMode="numeric"
+                    value={field.value}
+                    onChange={(e) => field.onChange(maskCurrency(e.target.value))}
+                    placeholder="R$ 0,00"
+                    aria-invalid={!!errors.amountInput}
+                    disabled={globalAmountCents !== null}
+                  />
+                </FieldContent>
               )}
             />
-            {errors.amountInput && <p className="text-xs text-destructive">{errors.amountInput.message}</p>}
-          </div>
+            <FieldError>{errors.amountInput?.message}</FieldError>
+          </Field>
 
-          <div className="grid gap-2">
-            <Label>Data da Aplicação</Label>
+          <Field data-invalid={!!errors.applicationDate}>
+            <FieldLabel>Data da Aplicação</FieldLabel>
             <Controller
               control={control}
               name="applicationDate"
               render={({ field }) => (
-                <DatePickerField value={field.value} onChange={field.onChange} invalid={!!errors.applicationDate} />
+                <FieldContent>
+                  <DatePickerField
+                    value={field.value}
+                    onChange={field.onChange}
+                    invalid={!!errors.applicationDate}
+                    disabled={globalApplicationDate !== null}
+                  />
+                </FieldContent>
               )}
             />
-            {errors.applicationDate && <p className="text-xs text-destructive">{errors.applicationDate.message}</p>}
-          </div>
+            <FieldError>{errors.applicationDate?.message}</FieldError>
+          </Field>
 
           <div className="grid gap-2">
-            <Label>Resgate</Label>
+            <FieldLabel>Resgate</FieldLabel>
             <Controller
               control={control}
               name="redemptionInputMode"
@@ -274,74 +288,86 @@ export function AssetFormDialog({ open, mode, initialAsset, onOpenChange, onSubm
             />
 
             {redemptionInputMode === "date" ? (
-              <>
+              <Field data-invalid={!!errors.redemptionDate}>
                 <Controller
                   control={control}
                   name="redemptionDate"
                   render={({ field }) => (
-                    <DatePickerField value={field.value} onChange={field.onChange} invalid={!!errors.redemptionDate} />
+                    <FieldContent>
+                      <DatePickerField
+                        value={field.value}
+                        onChange={field.onChange}
+                        invalid={!!errors.redemptionDate}
+                      />
+                    </FieldContent>
                   )}
                 />
-                {errors.redemptionDate && <p className="text-xs text-destructive">{errors.redemptionDate.message}</p>}
-              </>
+                <FieldError>{errors.redemptionDate?.message}</FieldError>
+              </Field>
             ) : (
-              <>
+              <Field data-invalid={!!errors.termDays}>
                 <Controller
                   control={control}
                   name="termDays"
                   render={({ field }) => (
-                    <Input
-                      inputMode="numeric"
-                      value={field.value}
-                      onChange={(e) => field.onChange(maskOnlyNumbers(e.target.value))}
-                      placeholder="360"
-                      aria-invalid={!!errors.termDays}
-                    />
+                    <FieldContent>
+                      <Input
+                        inputMode="numeric"
+                        value={field.value}
+                        onChange={(e) => field.onChange(maskOnlyNumbers(e.target.value))}
+                        placeholder="360"
+                        aria-invalid={!!errors.termDays}
+                      />
+                    </FieldContent>
                   )}
                 />
-                {errors.termDays && <p className="text-xs text-destructive">{errors.termDays.message}</p>}
-              </>
+                <FieldError>{errors.termDays?.message}</FieldError>
+              </Field>
             )}
           </div>
 
           {yieldType === "pre" ? (
-            <div className="grid gap-2">
-              <Label htmlFor="preRate">Juros Prefixados (% a.a.)</Label>
+            <Field data-invalid={!!errors.preRate}>
+              <FieldLabel>Juros Prefixados (% a.a.)</FieldLabel>
               <Controller
                 control={control}
                 name="preRate"
                 render={({ field }) => (
-                  <Input
-                    id="preRate"
-                    inputMode="decimal"
-                    value={field.value}
-                    onChange={(e) => field.onChange(maskPercent(e.target.value))}
-                    placeholder="12,50%"
-                    aria-invalid={!!errors.preRate}
-                  />
+                  <FieldContent>
+                    <Input
+                      id="preRate"
+                      inputMode="decimal"
+                      value={field.value}
+                      onChange={(e) => field.onChange(maskPercent(e.target.value))}
+                      placeholder="12,50%"
+                      aria-invalid={!!errors.preRate}
+                    />
+                  </FieldContent>
                 )}
               />
-              {errors.preRate && <p className="text-xs text-destructive">{errors.preRate.message}</p>}
-            </div>
+              <FieldError>{errors.preRate?.message}</FieldError>
+            </Field>
           ) : (
-            <div className="grid gap-2">
-              <Label htmlFor="cdiPercent">% do CDI</Label>
+            <Field data-invalid={!!errors.cdiPercent}>
+              <FieldLabel>% do CDI</FieldLabel>
               <Controller
                 control={control}
                 name="cdiPercent"
                 render={({ field }) => (
-                  <Input
-                    id="cdiPercent"
-                    inputMode="decimal"
-                    value={field.value}
-                    onChange={(e) => field.onChange(maskPercent(e.target.value))}
-                    placeholder="100,00%"
-                    aria-invalid={!!errors.cdiPercent}
-                  />
+                  <FieldContent>
+                    <Input
+                      id="cdiPercent"
+                      inputMode="decimal"
+                      value={field.value}
+                      onChange={(e) => field.onChange(maskPercent(e.target.value))}
+                      placeholder="100,00%"
+                      aria-invalid={!!errors.cdiPercent}
+                    />
+                  </FieldContent>
                 )}
               />
-              {errors.cdiPercent && <p className="text-xs text-destructive">{errors.cdiPercent.message}</p>}
-            </div>
+              <FieldError>{errors.cdiPercent?.message}</FieldError>
+            </Field>
           )}
 
           <DialogFooter>
@@ -360,9 +386,10 @@ type DatePickerFieldProps = {
   value: Date | undefined;
   onChange: (date: Date | undefined) => void;
   invalid?: boolean;
+  disabled?: boolean;
 };
 
-function DatePickerField({ value, onChange, invalid }: DatePickerFieldProps) {
+function DatePickerField({ value, onChange, invalid, disabled }: DatePickerFieldProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -371,6 +398,7 @@ function DatePickerField({ value, onChange, invalid }: DatePickerFieldProps) {
           variant="outline"
           className={cn("w-full justify-start font-normal", !value && "text-muted-foreground")}
           aria-invalid={invalid}
+          disabled={disabled}
         >
           <CalendarIcon />
           {value ? format(value, "dd/MM/yyyy") : "Selecionar data"}
