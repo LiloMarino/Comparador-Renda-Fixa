@@ -10,6 +10,8 @@ type SettingsState = {
   globalApplicationDate: string | null;
   setGlobalAmountCents: (value: number | null) => void;
   setGlobalApplicationDate: (value: string | null) => void;
+  showBadges: boolean;
+  setShowBadges: (value: boolean) => void;
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -26,6 +28,8 @@ export const useSettingsStore = create<SettingsState>()(
       globalApplicationDate: null,
       setGlobalAmountCents: (value) => set({ globalAmountCents: value }),
       setGlobalApplicationDate: (value) => set({ globalApplicationDate: value }),
+      showBadges: true,
+      setShowBadges: (value) => set({ showBadges: value }),
     }),
     {
       name: "comparador-renda-fixa::settings",
@@ -51,4 +55,8 @@ export function useGlobalAmountCents(): number | null {
 
 export function useGlobalApplicationDate(): string | null {
   return useSettingsStore((s) => s.globalApplicationDate);
+}
+
+export function useShowBadges(): boolean {
+  return useSettingsStore((s) => s.showBadges);
 }

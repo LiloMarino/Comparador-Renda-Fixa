@@ -3,7 +3,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useCdi } from "@/hooks/use-settings-store";
+import { useCdi, useShowBadges } from "@/hooks/use-settings-store";
 import {
   INVESTMENT_TYPE_LABELS,
   YIELD_TYPE_LABELS,
@@ -41,6 +41,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export function AssetCard({ asset, onEdit, onDelete }: AssetCardProps) {
   const cdi = useCdi();
+  const showBadges = useShowBadges();
   const computed = computeAsset(asset, cdi);
   const principal = asset.amountCents / 100;
   const exempt = isTaxExempt(asset.investmentType);
@@ -49,14 +50,22 @@ export function AssetCard({ asset, onEdit, onDelete }: AssetCardProps) {
     <Card className="h-full">
       <CardHeader>
         <CardTitle>
-          <Badge className={INVESTMENT_TYPE_BADGE_CLASS[asset.investmentType]}>
-            {INVESTMENT_TYPE_LABELS[asset.investmentType]}
-          </Badge>
+          {showBadges ? (
+            <Badge className={INVESTMENT_TYPE_BADGE_CLASS[asset.investmentType]}>
+              {INVESTMENT_TYPE_LABELS[asset.investmentType]}
+            </Badge>
+          ) : (
+            INVESTMENT_TYPE_LABELS[asset.investmentType]
+          )}
         </CardTitle>
         <CardDescription>
-          <Badge variant="outline" className={YIELD_TYPE_BADGE_CLASS[asset.yieldType]}>
-            {YIELD_TYPE_LABELS[asset.yieldType]}
-          </Badge>
+          {showBadges ? (
+            <Badge variant="outline" className={YIELD_TYPE_BADGE_CLASS[asset.yieldType]}>
+              {YIELD_TYPE_LABELS[asset.yieldType]}
+            </Badge>
+          ) : (
+            YIELD_TYPE_LABELS[asset.yieldType]
+          )}
         </CardDescription>
         <CardAction className="flex gap-1">
           <Button variant="ghost" size="icon-sm" aria-label="Editar" onClick={() => onEdit(asset)}>
