@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { parseISO, isValid } from "date-fns";
 import { toast } from "sonner";
 import { AssetCard } from "@/features/comparator/components/asset-card";
 import { AddAssetCard } from "@/features/comparator/components/add-asset-card";
 import { AssetFormDialog } from "@/features/comparator/components/asset-form-dialog";
 import { useAssetsStore } from "@/features/comparator/hooks/use-assets-store";
+import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-settings-store";
 import type { Asset, AssetWithId } from "@/features/comparator/schemas/asset-schema";
 
 export function AssetGrid() {
@@ -14,6 +16,22 @@ export function AssetGrid() {
   const removeAsset = useAssetsStore((s) => s.removeAsset);
   const [open, setOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetWithId | undefined>(undefined);
+
+  const globalAmountCents = useGlobalAmountCents();
+  const globalApplicationDateStr = useGlobalApplicationDate();
+  const globalApplicationDate = useMemo(() => {
+    if (!globalApplicationDateStr) return null;
+    const parsed = parseISO(globalApplicationDateStr);
+    return isValid(parsed) ? parsed : null;
+  }, [globalApplicationDateStr]);
+
+  function applyGlobals(asset: AssetWithId): AssetWithId {
+    return {
+      ...asset,
+      ...(globalAmountCents !== null && { amountCents: globalAmountCents }),
+      ...(globalApplicationDate !== null && { applicationDate: globalApplicationDate }),
+    };
+  }
 
   function handleSubmit(asset: Asset) {
     if (selectedAsset) {
@@ -43,7 +61,7 @@ export function AssetGrid() {
         {ids.map((id) => {
           const asset = assets[id];
           if (!asset) return null;
-          return <AssetCard key={id} asset={asset} onEdit={handleEdit} onDelete={handleDelete} />;
+          return <AssetCard key={id} asset={applyGlobals(asset)} onEdit={() => handleEdit(asset)} onDelete={handleDelete} />;
         })}
         <AddAssetCard onClick={() => setOpen(true)} />
       </div>

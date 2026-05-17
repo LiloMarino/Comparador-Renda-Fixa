@@ -122,7 +122,10 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
 
         <Separator />
 
-        <p className="text-sm font-medium">Padrões de Aplicação</p>
+        <div className="grid gap-0.5">
+          <p className="text-sm font-medium">Valores Globais</p>
+          <p className="text-xs text-muted-foreground">Quando definidos, substituem os valores individuais de todos os ativos.</p>
+        </div>
 
         <div className="grid gap-2">
           <Label htmlFor="global-amount">Valor Aplicado (R$)</Label>
