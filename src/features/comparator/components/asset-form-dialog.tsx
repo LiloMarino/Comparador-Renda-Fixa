@@ -1,7 +1,7 @@
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addBusinessDays, format, isValid } from "date-fns";
+import { addDays, format, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import {
@@ -50,7 +50,7 @@ const formSchema = z
       .refine((val) => parseLocaleNumber(val) > 0, "Informe o valor aplicado."),
     applicationDate: z.date({ message: "Informe a data da aplicação." }),
     redemptionInputMode: z.enum(REDEMPTION_INPUT_MODES),
-    redemptionDate: z.date().optional(),
+    redemptionDate: z.date().optional().catch(undefined),
     termDays: z.string(),
     preRate: z.string(),
     cdiPercent: z.string(),
@@ -66,7 +66,7 @@ const formSchema = z
           path: ["redemptionDate"],
         });
       }
-    } else {
+    } else if (data.redemptionInputMode === "term") {
       const days = Number(data.termDays);
       if (!Number.isFinite(days) || days <= 0) {
         ctx.addIssue({ code: "custom", message: "Informe um prazo em dias válido.", path: ["termDays"] });
@@ -148,7 +148,7 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
     const redemptionDate =
       data.redemptionInputMode === "date"
         ? data.redemptionDate!
-        : addBusinessDays(data.applicationDate, Number(data.termDays));
+        : addDays(data.applicationDate, Number(data.termDays));
 
     const common = {
       name: data.name.trim(),
