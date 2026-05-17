@@ -1,22 +1,20 @@
-import { useState } from "react";
+import { useForm, Controller, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { CalendarIcon, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { format, isValid, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useShallow } from "zustand/react/shallow";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { useSelic, useSelicUpdatedAt, useSettingsStore, useShowBadges } from "@/hooks/use-settings-store";
+import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
+import { useSettingsStore, useGlobalApplicationDate } from "@/hooks/use-settings-store";
 import { selicToCdi } from "@/lib/cdi";
 import { maskCurrency, maskPercent } from "@/lib/mask";
 import { formatCurrency, formatDate, formatPercentNumber } from "@/lib/format";
@@ -36,47 +34,62 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   );
 }
 
-function decimalString(value: number): string {
-  return value.toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+const formSchema = z.object({
+  selicInput: z.string().refine((val) => parseLocaleNumber(val) > 0, "Informe uma taxa SELIC válida."),
+  amountInput: z.string(),
+  applicationDate: z.date().optional(),
+});
+
+type FormValues = z.input<typeof formSchema>;
 
 function SettingsForm({ onClose }: { onClose: () => void }) {
-  const currentSelic = useSelic();
-  const updatedAt = useSelicUpdatedAt();
-  const setSelic = useSettingsStore((s) => s.setSelic);
-  const currentGlobalAmountCents = useSettingsStore((s) => s.globalAmountCents);
-  const currentGlobalApplicationDate = useSettingsStore((s) => s.globalApplicationDate);
-  const setGlobalAmountCents = useSettingsStore((s) => s.setGlobalAmountCents);
-  const setGlobalApplicationDate = useSettingsStore((s) => s.setGlobalApplicationDate);
-  const { theme, setTheme } = useTheme();
-  const showBadges = useShowBadges();
-  const setShowBadges = useSettingsStore((s) => s.setShowBadges);
-
-  const [selicInput, setSelicInput] = useState(() => maskPercent(decimalString(currentSelic)));
-  const [amountInput, setAmountInput] = useState(() =>
-    currentGlobalAmountCents !== null ? formatCurrency(currentGlobalAmountCents / 100) : "",
+  const {
+    selic,
+    selicUpdatedAt,
+    globalAmountCents,
+    showBadges,
+    setSelic,
+    setGlobalAmountCents,
+    setGlobalApplicationDate,
+    setShowBadges,
+  } = useSettingsStore(
+    useShallow((s) => ({
+      selic: s.selic,
+      selicUpdatedAt: s.selicUpdatedAt,
+      globalAmountCents: s.globalAmountCents,
+      showBadges: s.showBadges,
+      setSelic: s.setSelic,
+      setGlobalAmountCents: s.setGlobalAmountCents,
+      setGlobalApplicationDate: s.setGlobalApplicationDate,
+      setShowBadges: s.setShowBadges,
+    })),
   );
-  const [applicationDateLocal, setApplicationDateLocal] = useState<Date | undefined>(() => {
-    if (!currentGlobalApplicationDate) return undefined;
-    const parsed = parseISO(currentGlobalApplicationDate);
-    return isValid(parsed) ? parsed : undefined;
+  const globalApplicationDate = useGlobalApplicationDate();
+  const { theme, setTheme } = useTheme();
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      selicInput: maskPercent(selic.toFixed(2)),
+      amountInput: globalAmountCents !== null ? formatCurrency(globalAmountCents / 100) : "",
+      applicationDate: globalApplicationDate ?? undefined,
+    },
   });
 
-  const parsedSelic = parseLocaleNumber(selicInput);
-  const previewCdi = selicToCdi(parsedSelic);
-  const canSave = parsedSelic > 0;
+  const selicInput = useWatch({ control, name: "selicInput" });
+  const previewCdi = selicToCdi(parseLocaleNumber(selicInput));
 
-  function handleSave() {
-    if (!canSave) return;
-    setSelic(parsedSelic);
+  function onSubmit(data: FormValues) {
+    setSelic(parseLocaleNumber(data.selicInput));
 
-    const parsedAmount = parseLocaleNumber(amountInput);
+    const parsedAmount = parseLocaleNumber(data.amountInput);
     const amountCents = Math.round(parsedAmount * 100);
-    setGlobalAmountCents(amountInput && amountCents > 0 ? amountCents : null);
-    setGlobalApplicationDate(applicationDateLocal ? applicationDateLocal.toISOString() : null);
+    setGlobalAmountCents(data.amountInput && amountCents > 0 ? amountCents : null);
+    setGlobalApplicationDate(data.applicationDate ? data.applicationDate.toISOString() : null);
 
     onClose();
   }
@@ -87,9 +100,9 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
         <DialogTitle>Configurações</DialogTitle>
       </DialogHeader>
 
-      <div className="grid gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
         <div className="grid gap-2">
-          <Label>Tema</Label>
+          <FieldLabel>Tema</FieldLabel>
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" variant={theme === "light" ? "default" : "outline"} onClick={() => setTheme("light")}>
               <Sun />
@@ -102,99 +115,122 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div className="grid gap-2">
-          <Label>Badges nos Cards</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <Button type="button" variant={showBadges ? "default" : "outline"} onClick={() => setShowBadges(true)}>
-              Ativado
-            </Button>
-            <Button type="button" variant={!showBadges ? "default" : "outline"} onClick={() => setShowBadges(false)}>
-              Desativado
-            </Button>
-          </div>
+        <div className="flex items-center justify-between">
+          <FieldLabel>Badges nos Cards</FieldLabel>
+          <Switch checked={showBadges} onCheckedChange={setShowBadges} />
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="selic-input">SELIC (% a.a.)</Label>
-          <Input
-            id="selic-input"
-            inputMode="decimal"
-            value={selicInput}
-            onChange={(e) => setSelicInput(maskPercent(e.target.value))}
-            placeholder="14,50%"
+        <Field data-invalid={!!errors.selicInput}>
+          <FieldLabel htmlFor="selic-input">SELIC (% a.a.)</FieldLabel>
+          <Controller
+            control={control}
+            name="selicInput"
+            render={({ field }) => (
+              <FieldContent>
+                <Input
+                  id="selic-input"
+                  inputMode="decimal"
+                  value={field.value}
+                  onChange={(e) => field.onChange(maskPercent(e.target.value))}
+                  placeholder="14,50"
+                  aria-invalid={!!errors.selicInput}
+                />
+              </FieldContent>
+            )}
           />
-        </div>
+          <FieldError>{errors.selicInput?.message}</FieldError>
+        </Field>
 
         <div className="grid gap-2">
-          <Label>CDI (% a.a.)</Label>
+          <FieldLabel>CDI (% a.a.)</FieldLabel>
           <div className="rounded-md border border-input bg-muted/40 px-2.5 py-2 text-sm">
             {formatPercentNumber(previewCdi)}
           </div>
         </div>
 
-        <div className="text-xs text-muted-foreground">Última atualização: {formatDate(updatedAt) || "—"}</div>
+        <div className="text-xs text-muted-foreground">Última atualização: {formatDate(selicUpdatedAt) || "—"}</div>
 
         <Separator />
 
         <div className="grid gap-0.5">
           <p className="text-sm font-medium">Valores Globais</p>
-          <p className="text-xs text-muted-foreground">Quando definidos, substituem os valores individuais de todos os ativos.</p>
+          <p className="text-xs text-muted-foreground">
+            Quando definidos, substituem os valores individuais de todos os ativos.
+          </p>
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="global-amount">Valor Aplicado (R$)</Label>
-          <Input
-            id="global-amount"
-            inputMode="numeric"
-            value={amountInput}
-            onChange={(e) => setAmountInput(maskCurrency(e.target.value))}
-            placeholder="R$ 0,00"
+        <Field data-invalid={!!errors.amountInput}>
+          <FieldLabel htmlFor="global-amount">Valor Aplicado (R$)</FieldLabel>
+          <Controller
+            control={control}
+            name="amountInput"
+            render={({ field }) => (
+              <FieldContent>
+                <Input
+                  id="global-amount"
+                  inputMode="numeric"
+                  value={field.value}
+                  onChange={(e) => field.onChange(maskCurrency(e.target.value))}
+                  placeholder="R$ 0,00"
+                  aria-invalid={!!errors.amountInput}
+                />
+              </FieldContent>
+            )}
           />
-        </div>
+          <FieldError>{errors.amountInput?.message}</FieldError>
+        </Field>
 
-        <div className="grid gap-2">
-          <Label>Data da Aplicação</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className={cn("w-full justify-start font-normal", !applicationDateLocal && "text-muted-foreground")}
-              >
-                <CalendarIcon />
-                {applicationDateLocal ? format(applicationDateLocal, "dd/MM/yyyy") : "Selecionar data"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={applicationDateLocal}
-                onSelect={setApplicationDateLocal}
-                locale={ptBR}
-                captionLayout="dropdown"
-              />
-            </PopoverContent>
-          </Popover>
-          {applicationDateLocal && (
-            <button
-              type="button"
-              className="self-start text-xs text-muted-foreground hover:text-destructive"
-              onClick={() => setApplicationDateLocal(undefined)}
-            >
-              Limpar data
-            </button>
-          )}
-        </div>
-      </div>
+        <Field data-invalid={!!errors.applicationDate}>
+          <FieldLabel>Data da Aplicação</FieldLabel>
+          <Controller
+            control={control}
+            name="applicationDate"
+            render={({ field }) => (
+              <FieldContent>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn("w-full justify-start font-normal", !field.value && "text-muted-foreground")}
+                      aria-invalid={!!errors.applicationDate}
+                    >
+                      <CalendarIcon />
+                      {field.value ? format(field.value, "dd/MM/yyyy") : "Selecionar data"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      locale={ptBR}
+                      captionLayout="dropdown"
+                    />
+                  </PopoverContent>
+                </Popover>
+                {field.value && (
+                  <button
+                    type="button"
+                    className="self-start text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => field.onChange(undefined)}
+                  >
+                    Limpar data
+                  </button>
+                )}
+              </FieldContent>
+            )}
+          />
+          <FieldError>{errors.applicationDate?.message}</FieldError>
+        </Field>
 
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
-          Cancelar
-        </Button>
-        <Button onClick={handleSave} disabled={!canSave}>
-          Salvar
-        </Button>
-      </DialogFooter>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit">Salvar</Button>
+        </DialogFooter>
+      </form>
     </>
   );
 }
