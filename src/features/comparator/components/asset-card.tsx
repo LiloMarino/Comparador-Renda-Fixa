@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useCdi } from "@/hooks/use-settings-store";
@@ -11,6 +12,17 @@ import {
 } from "@/features/comparator/schemas/asset-schema";
 import { computeAsset } from "@/features/comparator/lib/calculations";
 import { formatDate, formatDateWithDays, formatPercent, formatPercentNumber, formatCurrency } from "@/lib/format";
+
+const INVESTMENT_TYPE_BADGE_CLASS: Record<string, string> = {
+  CDB: "text-sm h-6 border-transparent bg-blue-600 text-white hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-500",
+  LCI: "text-sm h-6 border-transparent bg-orange-600 text-white hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-500",
+  LCA: "text-sm h-6 border-transparent bg-emerald-600 text-white hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-500",
+};
+
+const YIELD_TYPE_BADGE_CLASS: Record<string, string> = {
+  pre: "border-transparent text-sm text-violet-700 bg-violet-50 dark:border-violet-500 dark:text-violet-300 dark:bg-violet-500/10",
+  pos: "border-transparent text-sm text-sky-700 bg-sky-50 dark:border-sky-500 dark:text-sky-300 dark:bg-sky-500/10",
+};
 
 type AssetCardProps = {
   asset: AssetWithId;
@@ -36,8 +48,16 @@ export function AssetCard({ asset, onEdit, onDelete }: AssetCardProps) {
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>{INVESTMENT_TYPE_LABELS[asset.investmentType]}</CardTitle>
-        <CardDescription>{YIELD_TYPE_LABELS[asset.yieldType]}</CardDescription>
+        <CardTitle>
+          <Badge className={INVESTMENT_TYPE_BADGE_CLASS[asset.investmentType]}>
+            {INVESTMENT_TYPE_LABELS[asset.investmentType]}
+          </Badge>
+        </CardTitle>
+        <CardDescription>
+          <Badge variant="outline" className={YIELD_TYPE_BADGE_CLASS[asset.yieldType]}>
+            {YIELD_TYPE_LABELS[asset.yieldType]}
+          </Badge>
+        </CardDescription>
         <CardAction className="flex gap-1">
           <Button variant="ghost" size="icon-sm" aria-label="Editar" onClick={() => onEdit(asset)}>
             <Pencil />
