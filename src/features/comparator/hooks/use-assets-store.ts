@@ -6,8 +6,7 @@ import type {
 } from "@/features/comparator/schemas/asset-schema";
 
 type AssetsState = {
-  assets: Record<string, AssetWithId>;
-  ids: string[];
+  assets: AssetWithId[];
   addAsset: (asset: Asset) => string;
   updateAsset: (id: string, asset: Asset) => void;
   removeAsset: (id: string) => void;
@@ -23,54 +22,35 @@ function generateId(): string {
 export const useAssetsStore = create<AssetsState>()(
   persist(
     (set) => ({
-      assets: {},
-      ids: [],
+      assets: [],
       addAsset: (asset) => {
         const id = generateId();
         set((state) => ({
-          assets: { ...state.assets, [id]: { ...asset, id } },
-          ids: [...state.ids, id],
+          assets: [...state.assets, { ...asset, id }],
         }));
         return id;
       },
       updateAsset: (id, asset) => {
-        set((state) => {
-          if (!state.assets[id]) return state;
-          return {
-            assets: { ...state.assets, [id]: { ...asset, id } },
-          };
-        });
+        set((state) => ({
+          assets: state.assets.map((a) => (a.id === id ? { ...asset, id } : a)),
+        }));
       },
       removeAsset: (id) => {
-        set((state) => {
-          if (!state.assets[id]) return state;
-          const rest = { ...state.assets };
-          delete rest[id];
-          return {
-            assets: rest,
-            ids: state.ids.filter((x) => x !== id),
-          };
-        });
+        set((state) => ({
+          assets: state.assets.filter((a) => a.id !== id),
+        }));
       },
     }),
     {
       name: "comparador-renda-fixa::assets",
-      partialize: (state) => ({ assets: state.assets, ids: state.ids }),
+      partialize: (state) => ({ assets: state.assets }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-
-        const hydratedAssets = Object.fromEntries(
-          Object.entries(state.assets).map(([id, asset]) => [
-            id,
-            {
-              ...asset,
-              applicationDate: new Date(asset.applicationDate),
-              redemptionDate: new Date(asset.redemptionDate),
-            },
-          ]),
-        );
-
-        state.assets = hydratedAssets;
+        state.assets = state.assets.map((asset) => ({
+          ...asset,
+          applicationDate: new Date(asset.applicationDate),
+          redemptionDate: new Date(asset.redemptionDate),
+        }));
       },
     },
   ),

@@ -9,9 +9,8 @@ import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-sett
 import type { Asset, AssetWithId } from "@/features/comparator/schemas/asset-schema";
 
 export function AssetGrid() {
-  const { ids, assets, addAsset, updateAsset, removeAsset } = useAssetsStore(
+  const { assets, addAsset, updateAsset, removeAsset } = useAssetsStore(
     useShallow((s) => ({
-      ids: s.ids,
       assets: s.assets,
       addAsset: s.addAsset,
       updateAsset: s.updateAsset,
@@ -57,11 +56,9 @@ export function AssetGrid() {
   return (
     <>
       <div className="grid auto-rows-fr gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {ids.map((id) => {
-          const asset = assets[id];
-          if (!asset) return null;
-          return <AssetCard key={id} asset={applyGlobals(asset)} onEdit={() => handleEdit(asset)} onDelete={handleDelete} />;
-        })}
+        {assets.map((asset) => (
+          <AssetCard key={asset.id} asset={applyGlobals(asset)} onEdit={() => handleEdit(asset)} onDelete={handleDelete} />
+        ))}
         <AddAssetCard onClick={() => setOpen(true)} />
       </div>
 
