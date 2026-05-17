@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { useSelic, useSelicUpdatedAt, useSettingsStore } from "@/hooks/use-settings-store";
+import { useSelic, useSelicUpdatedAt, useSettingsStore, useShowBadges } from "@/hooks/use-settings-store";
 import { selicToCdi } from "@/lib/cdi";
 import { maskCurrency, maskPercent } from "@/lib/mask";
 import { formatCurrency, formatDate, formatPercentNumber } from "@/lib/format";
@@ -52,6 +52,8 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
   const setGlobalAmountCents = useSettingsStore((s) => s.setGlobalAmountCents);
   const setGlobalApplicationDate = useSettingsStore((s) => s.setGlobalApplicationDate);
   const { theme, setTheme } = useTheme();
+  const showBadges = useShowBadges();
+  const setShowBadges = useSettingsStore((s) => s.setShowBadges);
 
   const [selicInput, setSelicInput] = useState(() => maskPercent(decimalString(currentSelic)));
   const [amountInput, setAmountInput] = useState(() =>
@@ -96,6 +98,18 @@ function SettingsForm({ onClose }: { onClose: () => void }) {
             <Button type="button" variant={theme === "dark" ? "default" : "outline"} onClick={() => setTheme("dark")}>
               <Moon />
               Escuro
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <Label>Badges nos Cards</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" variant={showBadges ? "default" : "outline"} onClick={() => setShowBadges(true)}>
+              Ativado
+            </Button>
+            <Button type="button" variant={!showBadges ? "default" : "outline"} onClick={() => setShowBadges(false)}>
+              Desativado
             </Button>
           </div>
         </div>
