@@ -6,30 +6,30 @@ import { AssetFormDialog } from "@/features/comparator/components/asset-form-dia
 import { useAssetsStore } from "@/features/comparator/hooks/use-assets-store";
 import type { Asset, AssetWithId } from "@/features/comparator/schemas/asset-schema";
 
-type DialogState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; asset: AssetWithId };
-
 export function AssetGrid() {
   const ids = useAssetsStore((s) => s.ids);
   const assets = useAssetsStore((s) => s.assets);
   const addAsset = useAssetsStore((s) => s.addAsset);
   const updateAsset = useAssetsStore((s) => s.updateAsset);
   const removeAsset = useAssetsStore((s) => s.removeAsset);
-
-  const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
+  const [open, setOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<AssetWithId | undefined>(undefined);
 
   function handleSubmit(asset: Asset) {
-    if (dialog.mode === "create") {
+    if (selectedAsset) {
+      updateAsset(selectedAsset.id, asset);
+      toast.success("Investimento atualizado");
+    } else {
       addAsset(asset);
       toast.success("Investimento criado");
-    } else if (dialog.mode === "edit") {
-      updateAsset(dialog.asset.id, asset);
-      toast.success("Investimento atualizado");
     }
-    setDialog({ mode: "closed" });
+    setOpen(false);
+    setSelectedAsset(undefined);
   }
 
   function handleEdit(asset: AssetWithId) {
-    setDialog({ mode: "edit", asset });
+    setSelectedAsset(asset);
+    setOpen(true);
   }
 
   function handleDelete(id: string) {
@@ -45,15 +45,16 @@ export function AssetGrid() {
           if (!asset) return null;
           return <AssetCard key={id} asset={asset} onEdit={handleEdit} onDelete={handleDelete} />;
         })}
-        <AddAssetCard onClick={() => setDialog({ mode: "create" })} />
+        <AddAssetCard onClick={() => setOpen(true)} />
       </div>
 
       <AssetFormDialog
-        open={dialog.mode !== "closed"}
-        mode={dialog.mode === "edit" ? "edit" : "create"}
-        initialAsset={dialog.mode === "edit" ? dialog.asset : undefined}
-        onOpenChange={(open) => {
-          if (!open) setDialog({ mode: "closed" });
+        key={open ? (selectedAsset?.id ?? "create") : undefined}
+        open={open}
+        asset={selectedAsset}
+        onOpenChange={(isOpen) => {
+          setOpen(isOpen);
+          if (!isOpen) setSelectedAsset(undefined);
         }}
         onSubmit={handleSubmit}
       />
