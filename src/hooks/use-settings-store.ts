@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { isValid, parseISO } from "date-fns";
 import { selicToCdi } from "@/lib/cdi";
 
 type SettingsState = {
@@ -53,8 +55,13 @@ export function useGlobalAmountCents(): number | null {
   return useSettingsStore((s) => s.globalAmountCents);
 }
 
-export function useGlobalApplicationDate(): string | null {
-  return useSettingsStore((s) => s.globalApplicationDate);
+export function useGlobalApplicationDate(): Date | null {
+  const str = useSettingsStore((s) => s.globalApplicationDate);
+  return useMemo(() => {
+    if (!str) return null;
+    const parsed = parseISO(str);
+    return isValid(parsed) ? parsed : null;
+  }, [str]);
 }
 
 export function useShowBadges(): boolean {

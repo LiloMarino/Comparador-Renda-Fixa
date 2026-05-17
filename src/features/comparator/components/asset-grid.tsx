@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { parseISO, isValid } from "date-fns";
+import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import { AssetCard } from "@/features/comparator/components/asset-card";
 import { AddAssetCard } from "@/features/comparator/components/add-asset-card";
@@ -9,21 +9,20 @@ import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-sett
 import type { Asset, AssetWithId } from "@/features/comparator/schemas/asset-schema";
 
 export function AssetGrid() {
-  const ids = useAssetsStore((s) => s.ids);
-  const assets = useAssetsStore((s) => s.assets);
-  const addAsset = useAssetsStore((s) => s.addAsset);
-  const updateAsset = useAssetsStore((s) => s.updateAsset);
-  const removeAsset = useAssetsStore((s) => s.removeAsset);
+  const { ids, assets, addAsset, updateAsset, removeAsset } = useAssetsStore(
+    useShallow((s) => ({
+      ids: s.ids,
+      assets: s.assets,
+      addAsset: s.addAsset,
+      updateAsset: s.updateAsset,
+      removeAsset: s.removeAsset,
+    })),
+  );
   const [open, setOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetWithId | undefined>(undefined);
 
   const globalAmountCents = useGlobalAmountCents();
-  const globalApplicationDateStr = useGlobalApplicationDate();
-  const globalApplicationDate = useMemo(() => {
-    if (!globalApplicationDateStr) return null;
-    const parsed = parseISO(globalApplicationDateStr);
-    return isValid(parsed) ? parsed : null;
-  }, [globalApplicationDateStr]);
+  const globalApplicationDate = useGlobalApplicationDate();
 
   function applyGlobals(asset: AssetWithId): AssetWithId {
     return {

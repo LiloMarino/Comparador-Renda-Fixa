@@ -1,8 +1,7 @@
-import { useMemo } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addBusinessDays, format, isValid, parseISO } from "date-fns";
+import { addBusinessDays, format, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import {
@@ -108,12 +107,7 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
   const mode = asset ? "edit" : "create";
 
   const globalAmountCents = useGlobalAmountCents();
-  const globalApplicationDateStr = useGlobalApplicationDate();
-  const globalApplicationDate = useMemo(() => {
-    if (!globalApplicationDateStr) return null;
-    const parsed = parseISO(globalApplicationDateStr);
-    return isValid(parsed) ? parsed : null;
-  }, [globalApplicationDateStr]);
+  const globalApplicationDate = useGlobalApplicationDate();
 
   const initialValues = coalesceWithDefaults(
     {
