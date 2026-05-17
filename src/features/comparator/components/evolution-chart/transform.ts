@@ -4,6 +4,7 @@ import { computeAssetValueAt } from "@/features/comparator/lib/calculations";
 import { pickColor } from "./chart-config";
 
 export type ChartMode = "gross" | "net";
+export type Metric = "amount" | "yield";
 
 export type ChartPoint = { date: string } & Record<string, number | string>;
 
@@ -24,9 +25,15 @@ type TransformInput = {
   assets: AssetWithId[];
   cdi: number;
   mode: ChartMode;
+  metric: Metric;
 };
 
-export function toChartData({ assets, cdi, mode }: TransformInput): ChartData {
+export function toChartData({
+  assets,
+  cdi,
+  mode,
+  metric,
+}: TransformInput): ChartData {
   if (assets.length === 0) {
     return { points: [], series: [], intervalStart: null, intervalEnd: null };
   }
@@ -42,7 +49,9 @@ export function toChartData({ assets, cdi, mode }: TransformInput): ChartData {
   const points = steps.map((date) => {
     const point: ChartPoint = { date: formatISO(date, { representation: "date" }) };
     for (const asset of assets) {
-      point[asset.id] = computeAssetValueAt(asset, cdi, date, mode);
+      const raw = computeAssetValueAt(asset, cdi, date, mode);
+      const principal = asset.amountCents / 100;
+      point[asset.id] = metric === "yield" ? raw - principal : raw;
     }
     return point;
   });

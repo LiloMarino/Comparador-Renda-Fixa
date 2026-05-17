@@ -25,19 +25,43 @@ import { useCdi } from "@/hooks/use-settings-store";
 import { formatChartCurrency, formatTickDate } from "./chart-config";
 import { CustomTooltip } from "./chart-tooltip";
 import { EmptyState } from "./empty-state";
-import { toChartData, type ChartMode } from "./transform";
+import { MetricToggle } from "./metric-toggle";
+import { toChartData, type ChartMode, type Metric } from "./transform";
 import { ValueModeToggle } from "./value-mode-toggle";
 
 export function EvolutionChart() {
   const assets = useAssetsStore((s) => s.assets);
   const cdi = useCdi();
   const [mode, setMode] = useState<ChartMode>("net");
+  const [metric, setMetric] = useState<Metric>("amount");
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
 
   const data = useMemo(
-    () => toChartData({ assets, cdi, mode }),
-    [assets, cdi, mode],
+    () => toChartData({ assets, cdi, mode, metric }),
+    [assets, cdi, mode, metric],
   );
+
+  const yDomain = useMemo<[number, number]>(() => {
+    const visibleIds = data.series
+      .map((s) => s.id)
+      .filter((id) => !hidden.has(id));
+    if (visibleIds.length === 0 || data.points.length === 0) return [0, 1];
+    let min = Infinity;
+    let max = -Infinity;
+    for (const p of data.points) {
+      for (const id of visibleIds) {
+        const v = p[id];
+        if (typeof v === "number") {
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      }
+    }
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
+    const span = max - min;
+    const pad = span > 0 ? span * 0.1 : Math.abs(max) * 0.01 || 1;
+    return [min - pad, max + pad];
+  }, [data, hidden]);
 
   const config = useMemo<ChartConfig>(() => {
     const entries: ChartConfig = {};
@@ -62,7 +86,8 @@ export function EvolutionChart() {
     <Card>
       <CardHeader>
         <CardTitle>Evolução do montante</CardTitle>
-        <CardAction>
+        <CardAction className="flex flex-wrap items-center gap-2">
+          <MetricToggle value={metric} onChange={setMetric} />
           <ValueModeToggle value={mode} onChange={setMode} />
         </CardAction>
       </CardHeader>
@@ -87,6 +112,8 @@ export function EvolutionChart() {
                 tickMargin={8}
                 tickFormatter={formatChartCurrency}
                 width={90}
+                domain={yDomain}
+                allowDataOverflow={false}
               />
               <ChartTooltip cursor content={<CustomTooltip />} />
               <ChartLegend
