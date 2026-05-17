@@ -43,7 +43,20 @@ export const useAssetsStore = create<AssetsState>()(
     }),
     {
       name: "comparador-renda-fixa::assets",
+      version: 1,
       partialize: (state) => ({ assets: state.assets }),
+      migrate: (persistedState, version) => {
+        const state = (persistedState ?? { assets: [] }) as {
+          assets: AssetWithId[];
+        };
+        if (version < 1) {
+          state.assets = state.assets.map((asset, i) => ({
+            ...asset,
+            name: asset.name ?? `Investimento #${i + 1}`,
+          }));
+        }
+        return state;
+      },
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         state.assets = state.assets.map((asset) => ({

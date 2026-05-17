@@ -1,7 +1,7 @@
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addBusinessDays, format, isValid } from "date-fns";
+import { addDays, format, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import {
@@ -36,10 +36,12 @@ import {
   type Asset,
   type AssetWithId,
 } from "@/features/comparator/schemas/asset-schema";
+import { useAssetsStore } from "@/features/comparator/hooks/use-assets-store";
 import { useGlobalAmountCents, useGlobalApplicationDate } from "@/hooks/use-settings-store";
 
 const formSchema = z
   .object({
+    name: z.string().min(1, "Informe o nome do investimento.").max(60),
     investmentType: z.enum(INVESTMENT_TYPES),
     yieldType: z.enum(YIELD_TYPES),
     amountInput: z
@@ -48,7 +50,7 @@ const formSchema = z
       .refine((val) => parseLocaleNumber(val) > 0, "Informe o valor aplicado."),
     applicationDate: z.date({ message: "Informe a data da aplicação." }),
     redemptionInputMode: z.enum(REDEMPTION_INPUT_MODES),
-    redemptionDate: z.date().optional(),
+    redemptionDate: z.date().optional().catch(undefined),
     termDays: z.string(),
     preRate: z.string(),
     cdiPercent: z.string(),
@@ -64,7 +66,7 @@ const formSchema = z
           path: ["redemptionDate"],
         });
       }
-    } else {
+    } else if (data.redemptionInputMode === "term") {
       const days = Number(data.termDays);
       if (!Number.isFinite(days) || days <= 0) {
         ctx.addIssue({ code: "custom", message: "Informe um prazo em dias válido.", path: ["termDays"] });
@@ -92,6 +94,7 @@ type AssetFormDialogProps = {
 };
 
 const DEFAULT_VALUES: FormValues = {
+  name: "",
   investmentType: "CDB",
   yieldType: "pos",
   amountInput: "",
@@ -108,10 +111,12 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
 
   const globalAmountCents = useGlobalAmountCents();
   const globalApplicationDate = useGlobalApplicationDate();
+  const assetsCount = useAssetsStore((s) => s.assets.length);
 
   const initialValues = coalesceWithDefaults(
     {
       ...(asset ?? {}),
+      name: asset?.name ?? `Investimento #${assetsCount + 1}`,
       amountInput:
         globalAmountCents !== null
           ? formatCurrency(globalAmountCents / 100)
@@ -143,9 +148,10 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
     const redemptionDate =
       data.redemptionInputMode === "date"
         ? data.redemptionDate!
-        : addBusinessDays(data.applicationDate, Number(data.termDays));
+        : addDays(data.applicationDate, Number(data.termDays));
 
     const common = {
+      name: data.name.trim(),
       investmentType: data.investmentType,
       amountCents,
       applicationDate: data.applicationDate,
@@ -169,6 +175,27 @@ export function AssetFormDialog({ open, asset, onOpenChange, onSubmit }: AssetFo
         </DialogHeader>
 
         <form onSubmit={handleSubmit(submit)} className="grid gap-4" noValidate>
+          <Field data-invalid={!!errors.name}>
+            <FieldLabel>Nome</FieldLabel>
+            <Controller
+              control={control}
+              name="name"
+              render={({ field }) => (
+                <FieldContent>
+                  <Input
+                    id="name"
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    maxLength={60}
+                    placeholder="Investimento #1"
+                    aria-invalid={!!errors.name}
+                  />
+                </FieldContent>
+              )}
+            />
+            <FieldError>{errors.name?.message}</FieldError>
+          </Field>
+
           <div className="grid grid-cols-2 gap-3">
             <Field data-invalid={!!errors.investmentType}>
               <FieldLabel>Tipo de Investimento</FieldLabel>
