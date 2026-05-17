@@ -15,8 +15,6 @@ import {
 } from "@/components/ui/card";
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   type ChartConfig,
 } from "@/components/ui/chart";
@@ -26,6 +24,7 @@ import { formatChartCurrency, formatTickDate } from "./chart-config";
 import { CustomTooltip } from "./chart-tooltip";
 import { EmptyState } from "./empty-state";
 import { MetricToggle } from "./metric-toggle";
+import { SeriesFilter } from "./series-filter";
 import { toChartData, type ChartMode, type Metric } from "./transform";
 import { ValueModeToggle } from "./value-mode-toggle";
 
@@ -95,49 +94,52 @@ export function EvolutionChart() {
         {data.intervalStart === null ? (
           <EmptyState message="Não há intervalo de tempo comum entre os ativos. Ajuste as datas de aplicação ou resgate para comparar." />
         ) : (
-          <ChartContainer config={config} className="max-h-[420px] w-full">
-            <LineChart data={data.points} margin={{ left: 12, right: 12 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                tickFormatter={formatTickDate}
-                minTickGap={24}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                tickFormatter={formatChartCurrency}
-                width={90}
-                domain={yDomain}
-                allowDataOverflow={false}
-              />
-              <ChartTooltip cursor content={<CustomTooltip />} />
-              <ChartLegend
-                onClick={(e) => {
-                  const key = e.dataKey;
-                  if (typeof key === "string") toggleSeries(key);
-                }}
-                content={<ChartLegendContent />}
-              />
-              {data.series.map((s) => (
-                <Line
-                  key={s.id}
-                  type="monotone"
-                  dataKey={s.id}
-                  name={s.name}
-                  stroke={`var(--color-${s.id})`}
-                  strokeWidth={2}
-                  dot={false}
-                  hide={hidden.has(s.id)}
-                  isAnimationActive={false}
-                />
-              ))}
-            </LineChart>
-          </ChartContainer>
+          <div className="flex flex-col gap-4 md:flex-row">
+            <div className="min-w-0 flex-1">
+              <ChartContainer config={config} className="max-h-[420px] w-full">
+                <LineChart data={data.points} margin={{ left: 12, right: 12 }}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={formatTickDate}
+                    minTickGap={24}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={formatChartCurrency}
+                    width={90}
+                    domain={yDomain}
+                    allowDataOverflow={false}
+                  />
+                  <ChartTooltip cursor content={<CustomTooltip />} />
+                  {data.series.map((s) => (
+                    <Line
+                      key={s.id}
+                      type="monotone"
+                      dataKey={s.id}
+                      name={s.name}
+                      stroke={`var(--color-${s.id})`}
+                      strokeWidth={2}
+                      dot={false}
+                      hide={hidden.has(s.id)}
+                      isAnimationActive={false}
+                    />
+                  ))}
+                </LineChart>
+              </ChartContainer>
+            </div>
+            <SeriesFilter
+              series={data.series}
+              hidden={hidden}
+              onToggle={toggleSeries}
+              className="md:w-44 md:shrink-0"
+            />
+          </div>
         )}
       </CardContent>
     </Card>
